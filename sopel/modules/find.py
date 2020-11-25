@@ -50,10 +50,11 @@ def collectlines(bot, trigger):
     # Update in-memory list of the user's lines in the channel
     line_list = bot.memory['find_lines'][trigger.sender][trigger.nick]
     line = trigger.group()
-    if line.startswith("s/"):  # Don't remember substitutions
+    if line.startswith('s/') or line.startswith('s|'):
+        # Don't remember substitutions
         return
     # store messages in reverse order (most recent first)
-    elif line.startswith("\x01ACTION"):  # For /me messages
+    elif line.startswith('\x01ACTION'):  # For /me messages
         line = line[:-1]
         line_list.appendleft(line)
     else:
@@ -113,20 +114,22 @@ def kick_cleanup(bot, trigger):
 
 # Match nick, s/find/replace/flags. Flags and nick are optional, nick can be
 # followed by comma or colon, anything after the first space after the third
-# slash is ignored, you can escape slashes with backslashes, and if you want to
-# search for an actual backslash followed by an actual slash, you're shit out of
-# luck because this is the fucking regex of death as it is.
+# slash is ignored, and you can use either a slash or a pipe.
+# If you want to search for an actual slash AND a pipe in the same message,
+# you're shit out of luck because this is the fucking regex of death as it is.
 @plugin.rule(r"""(?:
-            (\S+)           # Catch a nick in group 1
-          [:,]\s+)?         # Followed by colon/comma and whitespace, if given
-          s/                # The literal s/
-          (                 # Group 2 is the thing to find
-            (?:\\/ | [^/])+ # One or more non-slashes or escaped slashes
-          )/(               # Group 3 is what to replace with
-            (?:\\/ | [^/])* # One or more non-slashes or escaped slashes
-          )
-          (?:/(\S+))?       # Optional slash, followed by group 4 (flags)
-          """)
+             (\S+)          # Catch a nick in group 1
+             [:,]\s+)?      # Followed by colon/comma and whitespace, if given
+             s([/|])        # The literal s and a separator as group 2 (/ or |)
+             (              # Group 3 is the thing to find
+               (?:(?!\2).)+ # One or more that isn't the separator from group 2
+             )
+             \2             # The separator, from group 2.
+             (              # Group 4 is what to replace with
+               (?:(?!\2).)* # One or more that isn't the separator from group 2
+             )
+             (?:\2(\S+))?   # Optional separator from group 2, followed by group 5 (flags)
+            """)
 @plugin.priority('high')
 def findandreplace(bot, trigger):
     # Don't bother in PM
@@ -141,10 +144,10 @@ def findandreplace(bot, trigger):
     if not history:
         return
 
-    old = trigger.group(2).replace(r'\/', '/')
-    new = trigger.group(3).replace(r'\/', '/')
+    old = trigger.group(3)
+    new = trigger.group(4)
     me = False  # /me command
-    flags = (trigger.group(4) or '')
+    flags = (trigger.group(5) or '')
 
     # If g flag is given, replace all. Otherwise, replace once.
     if 'g' in flags:
