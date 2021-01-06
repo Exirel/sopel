@@ -1,3 +1,24 @@
 .section dl.py:not(:first-of-type) {
     margin-top: 1.5em;
 }
+
+.strike {
+    text-decoration: line-through;
+}
+
+.strong {
+    font-weight: bold;
+}
+
+.em {
+    font-style: italic;
+}
+
+.red {
+    color: #dd0000;
+}
+
+.spoiler {
+    color: #000;
+    background-color: #000;
+}
