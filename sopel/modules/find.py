@@ -116,19 +116,36 @@ def kick_cleanup(bot, trigger):
 # followed by comma or colon, anything after the first space after the third
 # slash is ignored, and you can use either a slash or a pipe.
 # If you want to search for an actual slash AND a pipe in the same message,
-# you're shit out of luck because this is the fucking regex of death as it is.
+# you can escape your separator, in old and/or new.
 @plugin.rule(r"""(?:
-             (\S+)          # Catch a nick in group 1
-             [:,]\s+)?      # Followed by colon/comma and whitespace, if given
-             s([/|])        # The literal s and a separator as group 2 (/ or |)
-             (              # Group 3 is the thing to find
-               (?:(?!\2).)+ # One or more that isn't the separator from group 2
+             (?P<nick>\S+)    # Catch a nick in group 1
+             [:,]\s+)?        # Followed by optional colon/comma and whitespace
+             s(?P<sep>/)      # The literal s and a separator / as group 2
+             (?P<old>         # Group 3 is the thing to find
+               (?:\\/|[^/])+  # One or more non-slashes or escaped slashes
              )
-             \2             # The separator, from group 2.
-             (              # Group 4 is what to replace with
-               (?:(?!\2).)* # One or more that isn't the separator from group 2
+             /                # The separator again
+             (?P<new>         # Group 4 is what to replace with
+               (?:\\/|[^/])*  # One or more that isn't the separator
              )
-             (?:\2(\S+))?   # Optional separator from group 2, followed by group 5 (flags)
+             (?:/             # Optional separator followed by group 5 (flags)
+                (?P<flags>\S+)
+             )?
+            """)
+@plugin.rule(r"""(?:
+             (?P<nick>\S+)    # Catch a nick in group 1
+             [:,]\s+)?        # Followed by optional colon/comma and whitespace
+             s(?P<sep>\|)     # The literal s and a separator | as group 2
+             (?P<old>         # Group 3 is the thing to find
+               (?:\\/|[^/])+  # One or more non-slashes or escaped slashes
+             )
+             \|               # The separator again
+             (?P<new>         # Group 4 is what to replace with
+               (?:\\\||[^|])* # One or more that isn't the separator
+             )
+             (?:|             # Optional separator followed by group 5 (flags)
+                (?P<flags>\S+)
+             )?
             """)
 @plugin.priority('high')
 def findandreplace(bot, trigger):
@@ -137,17 +154,18 @@ def findandreplace(bot, trigger):
         return
 
     # Correcting other person vs self.
-    rnick = Identifier(trigger.group(1) or trigger.nick)
+    rnick = Identifier(trigger.group('nick') or trigger.nick)
 
     # only do something if there is conversation to work with
     history = bot.memory['find_lines'].get(trigger.sender, {}).get(rnick, None)
     if not history:
         return
 
-    old = trigger.group(3)
-    new = trigger.group(4)
+    sep = trigger.group('sep')
+    old = trigger.group('old').replace('\\%s' % sep, sep)
+    new = trigger.group('new').replace('\\%s' % sep, sep)
     me = False  # /me command
-    flags = (trigger.group(5) or '')
+    flags = trigger.group('flags') or ''
 
     # If g flag is given, replace all. Otherwise, replace once.
     if 'g' in flags:
