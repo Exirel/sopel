@@ -4,7 +4,7 @@
 Advanced Tips & Tricks
 ======================
 
-Now that you have the basic knowledges about plugins, you may have more
+Now that you know the basics about plugins, you may have more
 questions, or there is a specific need you want to fulfill but can't quite
 grasp how to implement it. After all, this documentation alone can't cover
 every possible case!
@@ -21,8 +21,8 @@ Tracking events before/after the bot did
 
 When a user joins a channel, or quits the server, Sopel will automatically
 update the information about said user and channel. For example, when they
-joins a channel, that information is recorded in
-:attr:`bot.channels <sopel.bot.Sopel.channels>`, by adding a new 
+join a channel, that information is recorded in
+:attr:`bot.channels <sopel.bot.Sopel.channels>` by adding a new
 :class:`User <sopel.tools.target.User>` object to the correct
 :attr:`channel.users <sopel.tools.target.Channel.users>` dict.
 
