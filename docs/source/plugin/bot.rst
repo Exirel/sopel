@@ -117,26 +117,26 @@ Do it with style
     :class: spoiler
 
 
-When the bot talks, replies, or acts, it can do it with style: colors,
+When the bot talks, replies, or acts, it can do so with style: colors,
 **bold**, *italic*, _underline_, :strike:`striked`, or ``monospace``. IRC
-formatting works with control code, bytes you can use to tell IRC clients how
+formatting works with control codes, bytes you can use to tell IRC clients how
 to display some part of the text.
 
 .. seealso::
 
-    If you want to know more about `IRC formatting in general`__ and some of
-    its limitations, the modern IRC documentation may be of interest to you.
+    If you want to know more about IRC formatting in general and some of its
+    limitations, `the modern IRC documentation`__ may be of interest to you.
 
     .. __: https://modern.ircdocs.horse/formatting.html
 
-However, dealing with control code yourself is not the most dev-friendly
+However, dealing with control codes yourself is not the most dev-friendly
 approach, hence the :mod:`sopel.formatting` module. It contains various
-functions to help you create stylized texts.
+functions to help you create styled text.
 
 Text styles
 -----------
 
-Let's dive into example, starting with :func:`~sopel.formatting.bold` text::
+Let's dive into examples, starting with :func:`~sopel.formatting.bold` text::
 
     from sopel import formatting
 
@@ -174,12 +174,12 @@ functions and constants for that: the :func:`~sopel.formatting.color` function
 and the :class:`~sopel.formatting.colors` class.
 
 The ``color`` function takes a line of text and a foreground color. It also
-accept an optional background color that uses the same color codes. The color
-codes are listed by the ``colors`` class, and can be used like that::
+accepts an optional background color that uses the same color codes. The color
+codes are listed by the ``colors`` class, and can be used like this::
 
     bot.say(formatting.color('Red text.', formatting.colors.RED))
 
-This example should produce this output:
+The above example should produce this output:
 
     [Sopel] :red:`Red text.`
 
@@ -209,7 +209,7 @@ And expect this (you need to select the text to read it):
     [Sopel] :spoiler:`He was the killer.`
 
 Note that not all combinations of foreground and background colors are happy
-combinations, and you should keep the usage of colors to a minimum.
+ones, and you should be mindful of using too many unnecessary colors.
 
 
 Channels & users
