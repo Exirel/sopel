@@ -137,7 +137,7 @@ def kick_cleanup(bot, trigger):
              [:,]\s+)?        # Followed by optional colon/comma and whitespace
              s(?P<sep>\|)     # The literal s and a separator | as group 2
              (?P<old>         # Group 3 is the thing to find
-               (?:\\/|[^/])+  # One or more non-slashes or escaped slashes
+               (?:\\\||[^|])+  # One or more non-slashes or escaped slashes
              )
              \|               # The separator again
              (?P<new>         # Group 4 is what to replace with
