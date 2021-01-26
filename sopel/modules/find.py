@@ -126,7 +126,7 @@ def kick_cleanup(bot, trigger):
              )
              /                # The separator again
              (?P<new>         # Group 4 is what to replace with
-               (?:\\/|[^/])*  # One or more that isn't the separator
+               (?:\\/|[^/])*  # One or more non-slashes or escaped slashes
              )
              (?:/             # Optional separator followed by group 5 (flags)
                 (?P<flags>\S+)
