@@ -2,15 +2,19 @@
     margin-top: 1.5em;
 }
 
+.underline {
+    text-decoration: underline;
+}
+
 .strike {
     text-decoration: line-through;
 }
 
-.strong {
+.bold {
     font-weight: bold;
 }
 
-.em {
+.italic {
     font-style: italic;
 }
 

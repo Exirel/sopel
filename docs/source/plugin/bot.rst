@@ -104,23 +104,26 @@ Do it with style
 .. role:: red
     :class: red
 
-.. role:: strongred
-    :class: strong red
+.. role:: boldred
+    :class: bold red
+
+.. role:: underline
+    :class: underline
 
 .. role:: strike
     :class: strike
 
-.. role:: strongem
-    :class: strong em
+.. role:: bolditalic
+    :class: bold italic
 
 .. role:: spoiler
     :class: spoiler
 
 
 When the bot talks, replies, or acts, it can do so with style: colors,
-**bold**, *italic*, _underline_, :strike:`striked`, or ``monospace``. IRC
-formatting works with control codes, bytes you can use to tell IRC clients how
-to display some part of the text.
+**bold**, *italic*, :underline:`underline`, :strike:`striked`, or
+``monospace``. IRC formatting works with control codes, bytes you can use to
+tell IRC clients how to display some part of the text.
 
 .. seealso::
 
@@ -144,7 +147,7 @@ Let's dive into examples, starting with :func:`~sopel.formatting.bold` text::
 
 This will output a line like this:
 
-    [Sopel] **This is some bold text!**
+    <Sopel> **This is some bold text!**
 
 You can use them with Python string formatting::
 
@@ -153,7 +156,7 @@ You can use them with Python string formatting::
 
 To get that kind of output:
 
-    [Sopel] And here is the **important** part.
+    <Sopel> And here is the **important** part.
 
 And you can use multiple style functions together, for example with the
 :func:`~sopel.formatting.italic` function::
@@ -164,7 +167,7 @@ And you can use multiple style functions together, for example with the
 
 To get a result that looks like this:
 
-    [Sopel] And here is the :strongem:`very` **important** part.
+    <Sopel> And here is the :bolditalic:`very` **important** part.
 
 Colored styles
 --------------
@@ -181,7 +184,7 @@ codes are listed by the ``colors`` class, and can be used like this::
 
 The above example should produce this output:
 
-    [Sopel] :red:`Red text.`
+    <Sopel> :red:`Red text.`
 
 You can combine colors and styles, like this::
 
@@ -192,7 +195,7 @@ You can combine colors and styles, like this::
 
 So you get a similar result as:
 
-    [Sopel] [:strongred:`WARNING`] This is a *warning*.
+    <Sopel> [:boldred:`WARNING`] This is a *warning*.
 
 If you want to prevent spoilers, you could be tempted to take advantage of
 the background color::
@@ -206,7 +209,7 @@ the background color::
 
 And expect this (you need to select the text to read it):
 
-    [Sopel] :spoiler:`He was the killer.`
+    <Sopel> :spoiler:`He was the killer.`
 
 Note that not all combinations of foreground and background colors are happy
 ones, and you should be mindful of using too many unnecessary colors.
