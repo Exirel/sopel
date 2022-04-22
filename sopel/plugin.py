@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import enum
 import functools
+import inspect
 import logging
 import re
 from typing import (
     Callable,
     Literal,
     Optional,
+    overload,
     Pattern,
     Protocol,
     TYPE_CHECKING,
@@ -24,6 +26,12 @@ from typing import (
 )
 
 # import and expose privileges as shortcut
+from sopel.plugins.callables import (
+    AbstractPluginObject,
+    PluginCallable,
+    PluginGeneric,
+    PluginJob,
+)
 from sopel.privileges import AccessLevel
 
 VOICE = AccessLevel.VOICE
@@ -37,6 +45,7 @@ OPER = AccessLevel.OPER
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from sopel.bot import SopelWrapper
+
 
 __all__ = [
     # constants
@@ -368,17 +377,19 @@ def unblockable(
         Sopel's :meth:`~sopel.bot.Sopel.dispatch` method.
 
     """
-    def add_attribute(function):
-        function.unblockable = True
-        return function
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.unblockable = True
+        return handler
 
     # hack to allow both @unblockable and @unblockable() to work
     if callable(function):
-        return add_attribute(function)
-    return add_attribute
+        return decorator(function)
+
+    return decorator
 
 
-def interval(*intervals: Union[int, float]) -> Callable:
+def interval(*intervals: Union[int, float]) -> Callable[[Callable], PluginJob]:
     """Decorate a function to be called by the bot every *n* seconds.
 
     :param intervals: one or more duration(s), in seconds
@@ -388,9 +399,9 @@ def interval(*intervals: Union[int, float]) -> Callable:
     function will be called is *n* seconds after the bot was started.
 
     Plugin functions decorated by ``interval`` must only take
-    :class:`bot <sopel.bot.Sopel>` as their argument; they do not get a ``trigger``.
-    The ``bot`` argument will not have a context, so functions like
-    ``bot.say()`` will not have a default destination.
+    :class:`bot <sopel.bot.Sopel>` as their argument; they do not get a
+    ``trigger``. The ``bot`` argument will not have a context, so functions
+    like ``bot.say()`` will not have a default destination.
 
     There is no guarantee that the bot is connected to a server or in any
     channels when the function is called, so care must be taken.
@@ -405,19 +416,21 @@ def interval(*intervals: Union[int, float]) -> Callable:
                 bot.say("It has been five seconds!", "#here")
 
     """
-    def add_attribute(function):
-        function._sopel_callable = True
-        if not hasattr(function, "interval"):
-            function.interval = []
+    def decorator(function: Callable) -> PluginJob:
+        handler = PluginJob.ensure_callable(function)
+
         for arg in intervals:
-            if arg not in function.interval:
-                function.interval.append(arg)
-        return function
+            if arg not in handler.intervals:
+                handler.intervals.append(arg)
 
-    return add_attribute
+        return handler
+
+    return decorator
 
 
-def rule(*patterns: Union[str, Pattern]) -> Callable:
+def rule(
+    *patterns: Union[str, Pattern],
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to be called when a line matches the given pattern.
 
     :param patterns: one or more regular expression(s)
@@ -460,19 +473,21 @@ def rule(*patterns: Union[str, Pattern]) -> Callable:
         use the :func:`search` decorator instead.
 
     """
-    def add_attribute(function):
-        function._sopel_callable = True
-        if not hasattr(function, "rule"):
-            function.rule = []
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+
         for value in patterns:
-            if value not in function.rule:
-                function.rule.append(value)
-        return function
+            if value not in handler.rules:
+                handler.rules.append(value)
 
-    return add_attribute
+        return handler
+
+    return decorator
 
 
-def rule_lazy(*loaders: Callable) -> Callable:
+def rule_lazy(
+    *loaders: Callable,
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a callable as a rule with lazy loading.
 
     :param loaders: one or more functions to generate a list of **compiled**
@@ -510,16 +525,17 @@ def rule_lazy(*loaders: Callable) -> Callable:
         with the :func:`sopel.tools.chain_loaders` function.
 
     """
-    def decorator(function):
-        function._sopel_callable = True
-        if not hasattr(function, 'rule_lazy_loaders'):
-            function.rule_lazy_loaders = []
-        function.rule_lazy_loaders.extend(loaders)
-        return function
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.rule_lazy_loaders.extend(loaders)
+        return handler
+
     return decorator
 
 
-def find(*patterns: Union[str, Pattern]) -> Callable:
+def find(
+    *patterns: Union[str, Pattern],
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to be called for each time a pattern is found in a line.
 
     :param patterns: one or more regular expression(s)
@@ -562,19 +578,21 @@ def find(*patterns: Union[str, Pattern]) -> Callable:
         use the :func:`rule` decorator instead.
 
     """
-    def add_attribute(function):
-        function._sopel_callable = True
-        if not hasattr(function, "find_rules"):
-            function.find_rules = []
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+
         for value in patterns:
-            if value not in function.find_rules:
-                function.find_rules.append(value)
-        return function
+            if value not in handler.find_rules:
+                handler.find_rules.append(value)
 
-    return add_attribute
+        return handler
+
+    return decorator
 
 
-def find_lazy(*loaders: Callable) -> Callable:
+def find_lazy(
+    *loaders: Callable
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a callable as a find rule with lazy loading.
 
     :param loaders: one or more functions to generate a list of **compiled**
@@ -612,16 +630,17 @@ def find_lazy(*loaders: Callable) -> Callable:
         with the :func:`sopel.tools.chain_loaders` function.
 
     """
-    def decorator(function):
-        function._sopel_callable = True
-        if not hasattr(function, 'find_rules_lazy_loaders'):
-            function.find_rules_lazy_loaders = []
-        function.find_rules_lazy_loaders.extend(loaders)
-        return function
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.find_rules_lazy_loaders.extend(loaders)
+        return handler
+
     return decorator
 
 
-def search(*patterns: Union[str, Pattern]) -> Callable:
+def search(
+    *patterns: Union[str, Pattern],
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to be called when a pattern matches anywhere in a line.
 
     :param patterns: one or more regular expression(s)
@@ -667,19 +686,19 @@ def search(*patterns: Union[str, Pattern]) -> Callable:
         use the :func:`rule` decorator instead.
 
     """
-    def add_attribute(function):
-        function._sopel_callable = True
-        if not hasattr(function, "search_rules"):
-            function.search_rules = []
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
         for value in patterns:
-            if value not in function.search_rules:
-                function.search_rules.append(value)
-        return function
+            if value not in handler.search_rules:
+                handler.search_rules.append(value)
+        return handler
 
-    return add_attribute
+    return decorator
 
 
-def search_lazy(*loaders: Callable) -> Callable:
+def search_lazy(
+    *loaders: Callable,
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a callable as a search rule with lazy loading.
 
     :param loaders: one or more functions to generate a list of **compiled**
@@ -717,16 +736,15 @@ def search_lazy(*loaders: Callable) -> Callable:
         with the :func:`sopel.tools.chain_loaders` function.
 
     """
-    def decorator(function):
-        function._sopel_callable = True
-        if not hasattr(function, 'search_rules_lazy_loaders'):
-            function.search_rules_lazy_loaders = []
-        function.search_rules_lazy_loaders.extend(loaders)
-        return function
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.search_rules_lazy_loaders.extend(loaders)
+        return handler
+
     return decorator
 
 
-def thread(value: bool) -> Callable:
+def thread(value: bool) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to specify if it should be run in a separate thread.
 
     :param value: if ``True``, the function is called in a separate thread;
@@ -739,16 +757,25 @@ def thread(value: bool) -> Callable:
     """
     threaded = bool(value)
 
-    def add_attribute(function):
-        function.thread = threaded
-        return function
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.threaded = threaded
+        return handler
 
-    return add_attribute
+    return decorator
 
 
-def allow_bots(
-    function: Optional[Callable] = None,
-) -> Callable:
+@overload
+def allow_bots(function: Callable) -> PluginCallable:
+    ...
+
+
+@overload
+def allow_bots(function: None = None) -> Callable[[Callable], PluginCallable]:
+    ...
+
+
+def allow_bots(function=None):
     """Decorate a function to specify that it should receive events from bots.
 
     On networks implementing the `Bot Mode specification`__, messages and
@@ -758,19 +785,30 @@ def allow_bots(
 
     .. __: https://ircv3.net/specs/extensions/bot-mode
     """
-    def add_attribute(function):
-        function.allow_bots = True
-        return function
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.allow_bots = True
+        return handler
 
     # hack to allow both @allow_bots and @allow_bots() to work
+    # this requires the two @overload signatures above
     if callable(function):
-        return add_attribute(function)
-    return add_attribute
+        return decorator(function)
+
+    return decorator
 
 
-def echo(
-    function: Optional[Callable] = None,
-) -> Callable:
+@overload
+def echo(function: Callable) -> PluginCallable:
+    ...
+
+
+@overload
+def echo(function: None = None) -> Callable[[Callable], PluginCallable]:
+    ...
+
+
+def echo(function=None):
     """Decorate a function to specify that it should receive echo messages.
 
     This decorator can be used to listen in on the messages that Sopel is
@@ -783,17 +821,19 @@ def echo(
         creating feedback loops when using this feature.
 
     """
-    def add_attribute(function):
-        function.echo = True
-        return function
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.allow_echo = True
+        return handler
 
     # hack to allow both @echo and @echo() to work
     if callable(function):
-        return add_attribute(function)
-    return add_attribute
+        return decorator(function)
+
+    return decorator
 
 
-def command(*command_list: str) -> Callable:
+def command(*command_list: str) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to set one or more commands that should trigger it.
 
     :param command_list: one or more command name(s) to match
@@ -874,22 +914,25 @@ def command(*command_list: str) -> Callable:
         * use a :func:`rule` instead
 
     """
-    def add_attribute(function):
-        function._sopel_callable = True
-        if not hasattr(function, "commands"):
-            function.commands = []
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+
         for command in command_list:
-            if command not in function.commands:
-                function.commands.append(command)
-        return function
-    return add_attribute
+            if command not in handler.commands:
+                handler.commands.append(command)
+
+        return handler
+
+    return decorator
 
 
 commands = command
 """Alias to :func:`command`."""
 
 
-def nickname_command(*command_list: str) -> Callable:
+def nickname_command(
+    *command_list: str,
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to trigger on lines starting with "$nickname: command".
 
     :param command_list: one or more command name(s) to match
@@ -927,22 +970,25 @@ def nickname_command(*command_list: str) -> Callable:
                 # command would match the rest of the line.
 
     """
-    def add_attribute(function):
-        function._sopel_callable = True
-        if not hasattr(function, 'nickname_commands'):
-            function.nickname_commands = []
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+
         for cmd in command_list:
-            if cmd not in function.nickname_commands:
-                function.nickname_commands.append(cmd)
-        return function
-    return add_attribute
+            if cmd not in handler.nickname_commands:
+                handler.nickname_commands.append(cmd)
+
+        return handler
+
+    return decorator
 
 
 nickname_commands = nickname_command
 """Alias to :func:`nickname_command`."""
 
 
-def action_command(*command_list: str) -> Callable:
+def action_command(
+    *command_list: str,
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to trigger on CTCP ACTION lines.
 
     :param command_list: one or more command name(s) to match
@@ -979,22 +1025,23 @@ def action_command(*command_list: str) -> Callable:
                 # Would trigger on "/me hello!" and "/me hello"
 
     """
-    def add_attribute(function):
-        function._sopel_callable = True
-        if not hasattr(function, 'action_commands'):
-            function.action_commands = []
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+
         for cmd in command_list:
-            if cmd not in function.action_commands:
-                function.action_commands.append(cmd)
-        return function
-    return add_attribute
+            if cmd not in handler.action_commands:
+                handler.action_commands.append(cmd)
+
+        return handler
+
+    return decorator
 
 
 action_commands = action_command
 """Alias to :func:`action_command`."""
 
 
-def label(value: str) -> Callable:
+def label(value: str) -> Callable[[Callable], AbstractPluginObject]:
     """Decorate a function to add a rule label.
 
     :param value: a label for the rule
@@ -1014,13 +1061,17 @@ def label(value: str) -> Callable:
         some name that isn't tied to an identifier in the source code.
 
     """
-    def add_attribute(function):
-        function.rule_label = value
-        return function
-    return add_attribute
+    def decorator(function: Callable) -> AbstractPluginObject:
+        handler = PluginGeneric.ensure_callable(function)
+        handler.label = value
+        return handler
+
+    return decorator
 
 
-def priority(value: Literal['low', 'medium', 'high']) -> Callable:
+def priority(
+    value: Literal['low', 'medium', 'high'],
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to be executed with higher or lower priority.
 
     :param value: one of ``high``, ``medium``, or ``low``
@@ -1029,13 +1080,15 @@ def priority(value: Literal['low', 'medium', 'high']) -> Callable:
     if your plugin needs it. If a callable does not specify its ``priority``,
     Sopel assumes ``medium``.
     """
-    def add_attribute(function):
-        function.priority = value
-        return function
-    return add_attribute
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.priority = value
+        return handler
+
+    return decorator
 
 
-def event(*event_list: str) -> Callable:
+def event(*event_list: str) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to be triggered on specific IRC events.
 
     :param event_list: one or more event name(s) on which to trigger
@@ -1052,21 +1105,43 @@ def event(*event_list: str) -> Callable:
         numeric events, which may help your code be clearer.
 
     """
-    def add_attribute(function):
-        function._sopel_callable = True
-        if not hasattr(function, "event"):
-            function.event = []
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+
         for name in event_list:
-            if name not in function.event:
-                function.event.append(name)
-        return function
-    return add_attribute
+            if name not in handler.events:
+                handler.events.append(name)
+
+        return handler
+
+    return decorator
 
 
+@overload
 def ctcp(
-    function: Union[Callable, Optional[str]] = None,
+    function: None = None,
     *command_list: str,
-) -> Callable:
+) -> Callable[[Callable], PluginCallable]:
+    ...
+
+
+@overload
+def ctcp(
+    function: str,
+    *command_list: str,
+) -> Callable[[Callable], PluginCallable]:
+    ...
+
+
+@overload
+def ctcp(
+    function: Callable,
+    *command_list: str,
+) -> PluginCallable:
+    ...
+
+
+def ctcp(function=None, *command_list):
     """Decorate a callable to trigger on CTCP commands (mostly, ``ACTION``).
 
     :param command_list: one or more CTCP command(s) on which to trigger
@@ -1107,6 +1182,7 @@ def ctcp(
     .. __: https://datatracker.ietf.org/doc/html/draft-oakley-irc-ctcp-02#appendix-A
     """
     default_commands = ('ACTION',) + command_list
+
     if function is None:
         return ctcp(*default_commands)  # called as ``@ctcp()``
     elif callable(function):
@@ -1118,15 +1194,16 @@ def ctcp(
     # called as ``@ctcp('ACTION', ...)``
     ctcp_commands = (function,) + command_list
 
-    def add_attribute(function):
-        function._sopel_callable = True
-        if not hasattr(function, "ctcp"):
-            function.ctcp = []
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+
         for name in ctcp_commands:
-            if name not in function.ctcp:
-                function.ctcp.append(name)
-        return function
-    return add_attribute
+            if name not in handler.ctcp:
+                handler.ctcp.append(name)
+
+        return handler
+
+    return decorator
 
 
 def rate(
@@ -1134,8 +1211,8 @@ def rate(
     channel: int = 0,
     server: int = 0,
     *,
-    message: Optional[str] = None,
-) -> Callable:
+    message: str | None = None,
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to be rate-limited.
 
     :param user: seconds between permitted calls of this function by the same
@@ -1209,22 +1286,27 @@ def rate(
         :func:`rate_global`.
 
     """
-    def add_attribute(function):
-        if not hasattr(function, 'user_rate'):
-            function.user_rate = user
-        if not hasattr(function, 'channel_rate'):
-            function.channel_rate = channel
-        if not hasattr(function, 'global_rate'):
-            function.global_rate = server
-        function.default_rate_message = message
-        return function
-    return add_attribute
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        if handler.user_rate is None:
+            handler.user_rate = user
+
+        if handler.channel_rate is None:
+            handler.channel_rate = channel
+
+        if handler.global_rate is None:
+            handler.global_rate = server
+
+        handler.default_rate_message = message
+        return handler
+
+    return decorator
 
 
 def rate_user(
     rate: int,
-    message: Optional[str] = None,
-) -> Callable:
+    message: str | None = None,
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to be rate-limited for a user.
 
     :param rate: seconds between permitted calls of this function by the same
@@ -1255,17 +1337,19 @@ def rate_user(
         limits.
 
     """
-    def add_attribute(function):
-        function.user_rate = rate
-        function.user_rate_message = message
-        return function
-    return add_attribute
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.user_rate = rate
+        handler.user_rate_message = message
+        return handler
+
+    return decorator
 
 
 def rate_channel(
     rate: int,
-    message: Optional[str] = None,
-) -> Callable:
+    message: str | None = None,
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to be rate-limited for a channel.
 
     :param rate: seconds between permitted calls of this function in the same
@@ -1299,17 +1383,19 @@ def rate_channel(
         limits.
 
     """
-    def add_attribute(function):
-        function.channel_rate = rate
-        function.channel_rate_message = message
-        return function
-    return add_attribute
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.channel_rate = rate
+        handler.channel_rate_message = message
+        return handler
+
+    return decorator
 
 
 def rate_global(
     rate: int,
-    message: Optional[str] = None,
-) -> Callable:
+    message: str | None = None,
+) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to be rate-limited for the whole server.
 
     :param rate: seconds between permitted calls of this function no matter who
@@ -1342,11 +1428,13 @@ def rate_global(
         limits.
 
     """
-    def add_attribute(function):
-        function.global_rate = rate
-        function.global_rate_message = message
-        return function
-    return add_attribute
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.global_rate = rate
+        handler.global_rate_message = message
+        return handler
+
+    return decorator
 
 
 def require_privmsg(
@@ -1744,7 +1832,9 @@ def require_bot_privilege(
     return actual_decorator
 
 
-def url(*url_rules: str) -> Callable:
+def url(
+    *url_rules: str,
+) -> Callable[[Callable | PluginGeneric], PluginCallable]:
     """Decorate a function to handle URLs.
 
     :param url_rules: one or more regex pattern(s) to match URLs
@@ -1791,19 +1881,48 @@ def url(*url_rules: str) -> Callable:
         :attr:`~sopel.config.core_section.CoreSection.auto_url_schemes`.
 
     """
-    def actual_decorator(function):
-        function._sopel_callable = True
-        if not hasattr(function, 'url_regex'):
-            function.url_regex = []
+    def decorator(
+        function: Callable | PluginGeneric,
+    ) -> PluginCallable:
+        # do we need to handle the match parameter?
+        # old style URL callback: callable(bot, trigger, match)
+        # new style: callable(bot, trigger)
+        # TODO: remove in Sopel 9
+        if isinstance(function, AbstractPluginObject):
+            url_handler = function.get_handler()
+        else:
+            url_handler = function
+
+        match_count = 3
+        if inspect.ismethod(url_handler):
+            # account for the 'self' parameter when the handler is a method
+            match_count = 4
+
+        argspec = inspect.getfullargspec(url_handler)
+
+        if len(argspec.args) >= match_count:
+            @functools.wraps(url_handler)
+            def wrapped_handler(bot, trigger):
+                return url_handler(bot, trigger, match=trigger)
+
+            if isinstance(function, AbstractPluginObject):
+                function._handler = wrapped_handler
+            else:
+                function = wrapped_handler
+
+        handler = PluginCallable.ensure_callable(function)
+
         for url_rule in url_rules:
             url_regex = re.compile(url_rule)
-            if url_regex not in function.url_regex:
-                function.url_regex.append(url_regex)
-        return function
-    return actual_decorator
+            if url_regex not in handler.url_regex:
+                handler.url_regex.append(url_regex)
+
+        return handler
+
+    return decorator
 
 
-def url_lazy(*loaders: Callable) -> Callable:
+def url_lazy(*loaders: Callable) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to handle URL, using lazy-loading for its regex.
 
     :param loaders: one or more functions to generate a list of **compiled**
@@ -1840,12 +1959,11 @@ def url_lazy(*loaders: Callable) -> Callable:
         with the :func:`sopel.tools.chain_loaders` function.
 
     """
-    def decorator(function):
-        function._sopel_callable = True
-        if not hasattr(function, 'url_lazy_loaders'):
-            function.url_lazy_loaders = []
-        function.url_lazy_loaders.extend(loaders)
-        return function
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.url_lazy_loaders.extend(loaders)
+        return handler
+
     return decorator
 
 
@@ -1953,17 +2071,13 @@ class example:
 
         self.user_help = user_help
 
-    def __call__(self, func):
-        # mypy (as of v1.4) doesn't recognize the below check as adding an
-        # "example" attribute to `func` if it's missing, so the `func`
-        # argument isn't typed yet.
-        # When we're ready to type-hint `loader`, we can make a TypeVar like
-        # `Callable[[SopelWrapper, Trigger], Any]` (but with the attributes
-        # the loader adds) for use in places like this.
-        if not hasattr(func, "example"):
-            func.example = []
-
+    def __call__(
+        self,
+        func: Callable | PluginCallable,
+    ) -> PluginCallable:
         import sys
+
+        handler = PluginCallable.ensure_callable(func)
 
         # only inject test-related stuff if we're running tests
         # see https://stackoverflow.com/a/44595269/5991
@@ -1975,7 +2089,7 @@ class example:
             pytest = sys.modules['pytest']
 
             test = pytest_plugin.get_example_test(
-                func, self.msg, self.result, self.privmsg, self.admin,
+                handler, self.msg, self.result, self.privmsg, self.admin,
                 self.owner, self.repeat, self.use_re, self.ignore
             )
 
@@ -1985,13 +2099,15 @@ class example:
             if self.vcr:
                 test = pytest.mark.vcr(test)
 
+            func_module = handler._handler.__module__
+            func_name = handler._handler.__name__
             pytest_plugin.insert_into_module(
-                test, func.__module__, func.__name__, 'test_example'
+                test, func_module, func_name, 'test_example'
             )
             pytest_plugin.insert_into_module(
                 pytest_plugin.get_disable_setup(),
-                func.__module__,
-                func.__name__,
+                func_module,
+                func_name,
                 'disable_setup',
             )
 
@@ -2005,11 +2121,12 @@ class example:
             "is_admin": self.admin,
             "is_owner": self.owner,
         }
-        func.example.append(record)
-        return func
+        handler.examples.append(record)
+
+        return handler
 
 
-def output_prefix(prefix: str) -> Callable:
+def output_prefix(prefix: str) -> Callable[[Callable], PluginCallable]:
     """Decorate a function to add a prefix on its output.
 
     :param prefix: the prefix to add (must include trailing whitespace if
@@ -2021,7 +2138,9 @@ def output_prefix(prefix: str) -> Callable:
     * :meth:`bot.notice <sopel.bot.SopelWrapper.notice>`
 
     """
-    def add_attribute(function):
-        function.output_prefix = prefix
-        return function
-    return add_attribute
+    def decorator(function: Callable) -> PluginCallable:
+        handler = PluginCallable.ensure_callable(function)
+        handler.output_prefix = prefix
+        return handler
+
+    return decorator

@@ -292,9 +292,9 @@ def _update_tld_data(bot, which, force=False):
 
 
 @plugin.interval(60 * 60)
-def update_caches(bot, force=False):
-    _update_tld_data(bot, 'list', force)
-    _update_tld_data(bot, 'data', force)
+def update_caches(bot):
+    _update_tld_data(bot, 'list', False)
+    _update_tld_data(bot, 'data', False)
 
 
 @plugin.command('tld')
@@ -383,7 +383,8 @@ def tld_cache_command(bot, trigger):
     subcommand = subcommand.lower()
     if subcommand == 'update':
         bot.reply("Requesting updated IANA list and Wikipedia data.")
-        update_caches(bot, force=True)
+        _update_tld_data(bot, 'list', True)
+        _update_tld_data(bot, 'data', True)
     elif subcommand == 'clear':
         bot.db.delete_plugin_value('tld', 'tld_data_cache')
         bot.memory['tld_data_cache'] = {}

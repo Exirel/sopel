@@ -18,15 +18,12 @@ from __future__ import annotations
 
 import abc
 import datetime
-import functools
-import inspect
 import itertools
 import logging
 import re
 import threading
 from typing import (
     Any,
-    Callable,
     Optional,
     Type,
     TYPE_CHECKING,
@@ -43,6 +40,7 @@ if TYPE_CHECKING:
 
     from sopel.bot import Sopel
     from sopel.config import Config
+    from sopel.plugins.callables import PluginCallable
     from sopel.tools.identifiers import Identifier
     from sopel.trigger import PreTrigger
 
@@ -549,12 +547,12 @@ class AbstractRule(abc.ABC):
     def from_callable(
         cls: Type[TypedRule],
         settings: Config,
-        handler: Callable,
+        handler: PluginCallable,
     ) -> TypedRule:
         """Instantiate a rule object from ``settings`` and ``handler``.
 
         :param settings: Sopel's settings
-        :param handler: a function-based rule handler
+        :param handler: a plugin callable object
         :return: an instance of this class created from the ``handler``
 
         Sopel's function-based rule handlers are simple callables, decorated
@@ -891,7 +889,7 @@ class Rule(AbstractRule):
     LAZY_ATTRIBUTE = 'rule_lazy_loaders'
 
     @classmethod
-    def kwargs_from_callable(cls, handler):
+    def kwargs_from_callable(cls, handler: PluginCallable) -> dict:
         """Generate the keyword arguments to create a new instance.
 
         :param callable handler: callable used to generate keyword arguments
@@ -908,8 +906,7 @@ class Rule(AbstractRule):
         # manage examples:
         # - usages are for documentation only
         # - tests are examples that can be run and tested
-        examples = _clean_callable_examples(
-            getattr(handler, 'example', None) or tuple())
+        examples = _clean_callable_examples(handler.examples)
 
         usages = tuple(
             example
@@ -942,7 +939,7 @@ class Rule(AbstractRule):
                 handler, 'default_rate_message', None),
             'usages': usages or tuple(),
             'tests': tests,
-            'doc': inspect.getdoc(handler),
+            'doc': handler.doc,
         }
 
     @classmethod
@@ -1101,8 +1098,8 @@ class Rule(AbstractRule):
         if self._label:
             return self._label
 
-        if self._handler and self._handler.__name__:
-            return self._handler.__name__
+        if self._handler is not None:
+            return self._handler.label
 
         raise RuntimeError('Undefined rule label')
 
@@ -1366,7 +1363,7 @@ class Command(AbstractNamedRule):
     def from_callable(cls, settings, handler):
         prefix = settings.core.prefix
         help_prefix = settings.core.help_prefix
-        commands = getattr(handler, 'commands', [])
+        commands = handler.commands
         if not commands:
             raise RuntimeError('Invalid command callable: %s' % handler)
 
@@ -1774,29 +1771,8 @@ class URLCallback(Rule):
         regexes = cls.regex_from_callable(settings, handler)
         kwargs = cls.kwargs_from_callable(handler)
 
-        # do we need to handle the match parameter?
-        # old style URL callback: callable(bot, trigger, match)
-        # new style: callable(bot, trigger)
-        match_count = 3
-        if inspect.ismethod(handler):
-            # account for the 'self' parameter when the handler is a method
-            match_count = 4
-
-        execute_handler = handler
-        argspec = inspect.getfullargspec(handler)
-
-        if len(argspec.args) >= match_count:
-            @functools.wraps(handler)
-            def handler_match_wrapper(bot, trigger):
-                return handler(bot, trigger, match=trigger)
-
-            # don't directly `def execute_handler` to override it;
-            # doing incurs the wrath of pyflakes in the form of
-            # "F811: Redefinition of unused name"
-            execute_handler = handler_match_wrapper
-
         kwargs.update({
-            'handler': execute_handler,
+            'handler': handler,
             'schemes': settings.core.auto_url_schemes,
         })
 

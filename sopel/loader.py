@@ -16,6 +16,11 @@ import logging
 import re
 
 from sopel.config.core_section import COMMAND_DEFAULT_HELP_PREFIX
+from sopel.plugins.callables import (
+    AbstractPluginObject,
+    PluginCallable,
+    PluginJob,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -232,24 +237,49 @@ def clean_module(module, config):
     callable, i.e. properties related to threading, docs, examples, rate
     limiting, commands, rules, and other features.
     """
-    callables = []
-    shutdowns = []
-    jobs = []
-    urls = []
+    callables: list[PluginCallable] = []
+    shutdowns: list = []
+    jobs: list[PluginJob] = []
+    urls: list[PluginCallable] = []
+    handler: PluginJob | PluginCallable
     for obj in vars(module).values():
         if callable(obj):
             is_sopel_callable = getattr(obj, '_sopel_callable', False) is True
             if getattr(obj, '__name__', None) == 'shutdown':
                 shutdowns.append(obj)
+                continue
             elif not is_sopel_callable:
                 continue
-            elif is_triggerable(obj):
-                clean_callable(obj, config)
-                callables.append(obj)
-            elif hasattr(obj, 'interval'):
-                clean_callable(obj, config)
-                jobs.append(obj)
-            elif is_url_callback(obj):
-                clean_callable(obj, config)
-                urls.append(obj)
+
+            if isinstance(obj, PluginJob):
+                obj.setup(config)
+
+                if obj.intervals:
+                    jobs.append(obj)
+
+            else:
+                if not isinstance(obj, AbstractPluginObject):
+                    # compatibility with old-style plugin callables
+                    clean_callable(obj, config)
+                    if getattr(obj, 'interval', []):
+                        handler = PluginJob.ensure_callable(obj)
+                    else:
+                        handler = PluginCallable.ensure_callable(obj)
+                elif isinstance(obj, PluginCallable):
+                    handler = obj
+                else:
+                    # it's a subclass of AbstractPluginObject that isn't a
+                    # plugin job or callable, and it cannot be handled
+                    continue
+
+                handler.setup(config)
+
+                if isinstance(handler, PluginJob):
+                    jobs.append(handler)
+                elif isinstance(handler, PluginCallable):
+                    if handler.is_triggerable:
+                        callables.append(handler)
+                    elif handler.is_url_callback:
+                        urls.append(handler)
+
     return callables, jobs, shutdowns, urls
