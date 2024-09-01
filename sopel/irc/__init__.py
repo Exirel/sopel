@@ -548,7 +548,7 @@ class AbstractBot(abc.ABC):
     # Features
 
     @abc.abstractmethod
-    def dispatch(self, pretrigger: trigger.PreTrigger):
+    def dispatch(self, pretrigger: trigger.PreTrigger) -> None:
         """Handle running the appropriate callables for an incoming message.
 
         :param pretrigger: Sopel PreTrigger object
