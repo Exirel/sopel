@@ -17,7 +17,9 @@ import time
 from types import MappingProxyType
 from typing import (
     Any,
+    Callable,
     Optional,
+    Sequence,
     TYPE_CHECKING,
     TypeVar,
     Union,
@@ -36,6 +38,8 @@ from sopel.trigger import Trigger
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
+
+    from sopel.plugins.handlers import AbstractPluginHandler
     from sopel.trigger import PreTrigger
 
 
@@ -198,7 +202,7 @@ class Sopel(irc.AbstractBot):
         """
         return MappingProxyType(self._plugins)
 
-    def has_channel_privilege(self, channel, privilege) -> bool:
+    def has_channel_privilege(self, channel: str, privilege: int) -> bool:
         """Tell if the bot has a ``privilege`` level or above in a ``channel``.
 
         :param str channel: a channel the bot is in
@@ -339,7 +343,7 @@ class Sopel(irc.AbstractBot):
 
     # plugins management
 
-    def reload_plugin(self, name) -> None:
+    def reload_plugin(self, name: str) -> None:
         """Reload a plugin.
 
         :param str name: name of the plugin to reload
@@ -391,7 +395,14 @@ class Sopel(irc.AbstractBot):
 
     # TODO: deprecate both add_plugin and remove_plugin; see #2425
 
-    def add_plugin(self, plugin, callables, jobs, shutdowns, urls) -> None:
+    def add_plugin(
+        self,
+        plugin: AbstractPluginHandler,
+        callables: Sequence[Callable],
+        jobs: Sequence[Callable],
+        shutdowns: Sequence[Callable],
+        urls: Sequence[Callable],
+    ) -> None:
         """Add a loaded plugin to the bot's registry.
 
         :param plugin: loaded plugin to add
@@ -414,7 +425,14 @@ class Sopel(irc.AbstractBot):
         self.register_shutdowns(shutdowns)
         self.register_urls(urls)
 
-    def remove_plugin(self, plugin, callables, jobs, shutdowns, urls) -> None:
+    def remove_plugin(
+        self,
+        plugin: AbstractPluginHandler,
+        callables: Sequence[Callable],
+        jobs: Sequence[Callable],
+        shutdowns: Sequence[Callable],
+        urls: Sequence[Callable],
+    ) -> None:
         """Remove a loaded plugin from the bot's registry.
 
         :param plugin: loaded plugin to remove
@@ -993,7 +1011,7 @@ class Sopel(irc.AbstractBot):
         self,
         scheduler: plugin_jobs.Scheduler,
         exc: BaseException,
-    ):
+    ) -> None:
         """Called when the Job Scheduler fails.
 
         :param scheduler: the job scheduler that errored
@@ -1011,7 +1029,7 @@ class Sopel(irc.AbstractBot):
         scheduler: plugin_jobs.Scheduler,
         job: tools_jobs.Job,
         exc: BaseException,
-    ):
+    ) -> None:
         """Called when a job from the Job Scheduler fails.
 
         :param scheduler: the job scheduler responsible for the errored ``job``
@@ -1030,7 +1048,7 @@ class Sopel(irc.AbstractBot):
         self,
         trigger: Optional[Trigger] = None,
         exception: Optional[BaseException] = None,
-    ):
+    ) -> None:
         """Called internally when a plugin causes an error.
 
         :param trigger: the ``Trigger``\\ing line (if available)

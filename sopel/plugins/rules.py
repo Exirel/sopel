@@ -26,6 +26,7 @@ import re
 import threading
 from typing import (
     Any,
+    Callable,
     Optional,
     Type,
     TYPE_CHECKING,
@@ -39,7 +40,11 @@ from sopel.config.core_section import (
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
+
+    from sopel.bot import Sopel
+    from sopel.config import Config
     from sopel.tools.identifiers import Identifier
+    from sopel.trigger import PreTrigger
 
 
 __all__ = [
@@ -541,7 +546,11 @@ class AbstractRule(abc.ABC):
     """
     @classmethod
     @abc.abstractmethod
-    def from_callable(cls: Type[TypedRule], settings, handler) -> TypedRule:
+    def from_callable(
+        cls: Type[TypedRule],
+        settings: Config,
+        handler: Callable,
+    ) -> TypedRule:
         """Instantiate a rule object from ``settings`` and ``handler``.
 
         :param settings: Sopel's settings
@@ -671,7 +680,7 @@ class AbstractRule(abc.ABC):
         """
 
     @abc.abstractmethod
-    def match(self, bot, pretrigger) -> Iterable:
+    def match(self, bot: Sopel, pretrigger: PreTrigger) -> Iterable:
         """Match a pretrigger according to the rule.
 
         :param bot: Sopel instance
@@ -685,7 +694,7 @@ class AbstractRule(abc.ABC):
         """
 
     @abc.abstractmethod
-    def match_event(self, event) -> bool:
+    def match_event(self, event: str) -> bool:
         """Tell if the rule matches this ``event``.
 
         :param str event: potential matching event
@@ -845,7 +854,7 @@ class AbstractRule(abc.ABC):
         """
 
     @abc.abstractmethod
-    def parse(self, text) -> Generator:
+    def parse(self, text: str) -> Generator:
         """Parse ``text`` and yield matches.
 
         :param str text: text to parse by the rule
@@ -1046,7 +1055,7 @@ class Rule(AbstractRule):
         self._handler = handler
 
         # filters
-        self._events = events or ['PRIVMSG']
+        self._events: list[str] = events or ['PRIVMSG']
         self._ctcp = ctcp or []
         self._allow_bots = bool(allow_bots)
         self._allow_echo = bool(allow_echo)
@@ -1171,10 +1180,10 @@ class Rule(AbstractRule):
             if result:
                 yield result
 
-    def match_event(self, event) -> bool:
+    def match_event(self, event: str | None) -> bool:
         return bool(event and event in self._events)
 
-    def match_ctcp(self, command: Optional[str]) -> bool:
+    def match_ctcp(self, command: str | None) -> bool:
         if not self._ctcp:
             return True
 
