@@ -162,7 +162,7 @@ class Identifier(str):
         return self.casemapping(self)
 
     @staticmethod
-    def _lower(identifier: str):
+    def _lower(identifier: str) -> str:
         """Convert an identifier to lowercase per :rfc:`2812`.
 
         :param str identifier: the identifier (nickname or channel) to convert
@@ -186,7 +186,7 @@ class Identifier(str):
         return rfc1459_lower(identifier)
 
     @staticmethod
-    def _lower_swapped(identifier: str):
+    def _lower_swapped(identifier: str) -> str:
         """Backward-compatible version of :meth:`_lower`.
 
         :param identifier: the identifier (nickname or channel) to convert
