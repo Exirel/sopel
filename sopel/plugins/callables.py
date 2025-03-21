@@ -31,7 +31,6 @@ from typing import (
     Any,
     Callable,
     Literal,
-    override,
     Type,
     TYPE_CHECKING,
     TypeVar,
