@@ -241,7 +241,7 @@ def clean_module(module, config):
     shutdowns: list = []
     jobs: list[PluginJob] = []
     urls: list[PluginCallable] = []
-    handler: PluginJob | PluginCallable
+    handler: AbstractPluginObject
     for obj in vars(module).values():
         if callable(obj):
             is_sopel_callable = getattr(obj, '_sopel_callable', False) is True
@@ -250,36 +250,37 @@ def clean_module(module, config):
                 continue
             elif not is_sopel_callable:
                 continue
-
-            if isinstance(obj, PluginJob):
-                obj.setup(config)
-
-                if obj.intervals:
-                    jobs.append(obj)
-
-            else:
-                if not isinstance(obj, AbstractPluginObject):
-                    # compatibility with old-style plugin callables
-                    clean_callable(obj, config)
-                    if getattr(obj, 'interval', []):
-                        handler = PluginJob.ensure_callable(obj)
-                    else:
-                        handler = PluginCallable.ensure_callable(obj)
-                elif isinstance(obj, PluginCallable):
-                    handler = obj
+            elif not isinstance(obj, AbstractPluginObject):
+                # compatibility with old-style plugin callables
+                # TODO: to be removed in Sopel 9
+                clean_callable(obj, config)
+                if getattr(obj, 'interval', []):
+                    handler = PluginJob.ensure_callable(obj)
                 else:
-                    # it's a subclass of AbstractPluginObject that isn't a
-                    # plugin job or callable, and it cannot be handled
-                    continue
+                    handler = PluginCallable.ensure_callable(obj)
+            else:
+                handler = obj
 
+            if isinstance(handler, PluginJob):
                 handler.setup(config)
 
-                if isinstance(handler, PluginJob):
+                if handler.intervals:
                     jobs.append(handler)
-                elif isinstance(handler, PluginCallable):
-                    if handler.is_triggerable:
-                        callables.append(handler)
-                    elif handler.is_url_callback:
-                        urls.append(handler)
+                else:
+                    # a job without intervals?
+                    # TODO: ADD DEBUG LOG
+                    continue
 
+            elif isinstance(handler, PluginCallable):
+                handler.setup(config)
+                if handler.is_triggerable:
+                    callables.append(handler)
+
+                if handler.is_url_callback:
+                    urls.append(handler)
+
+            else:
+                # it's a subclass of AbstractPluginObject that isn't a
+                # plugin job or callable, and it cannot be handled
+                continue
     return callables, jobs, shutdowns, urls

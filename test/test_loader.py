@@ -210,7 +210,7 @@ def test_clean_module(testplugin, tmpconfig):
     callables, jobs, shutdowns, urls = loader.clean_module(
         test_mod, tmpconfig)
 
-    func_callables = [c._handler for c in callables]
+    func_callables = [c.get_handler() for c in callables]
 
     assert len(callables) == 6
     assert test_mod.first_command in func_callables
@@ -220,7 +220,7 @@ def test_clean_module(testplugin, tmpconfig):
     assert test_mod.example_find_lazy in func_callables
     assert test_mod.example_search_lazy in func_callables
 
-    func_jobs = [c._handler for c in jobs]
+    func_jobs = [c.get_handler() for c in jobs]
     assert len(jobs) == 2
     assert test_mod.interval5s in func_jobs
     assert test_mod.interval10s in func_jobs
@@ -228,7 +228,7 @@ def test_clean_module(testplugin, tmpconfig):
     assert len(shutdowns)
     assert test_mod.shutdown in shutdowns
 
-    func_urls = [c._handler for c in urls]
+    func_urls = [c.get_handler() for c in urls]
     assert len(urls) == 2
     assert test_mod.example_url in func_urls
     assert test_mod.example_url_lazy in func_urls

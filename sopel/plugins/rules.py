@@ -885,7 +885,7 @@ class Rule(AbstractRule):
     have names and aliases.
     """
 
-    REGEX_ATTRIBUTE = 'rule'
+    REGEX_ATTRIBUTE = 'rules'
     LAZY_ATTRIBUTE = 'rule_lazy_loaders'
 
     @classmethod
@@ -916,34 +916,34 @@ class Rule(AbstractRule):
         tests = tuple(example for example in examples if example.get('result'))
 
         return {
-            'plugin': getattr(handler, 'plugin_name', None),
-            'label': getattr(handler, 'rule_label', None),
-            'priority': getattr(handler, 'priority', PRIORITY_MEDIUM),
-            'events': getattr(handler, 'event', []),
-            'ctcp': getattr(handler, 'ctcp', []),
-            'allow_bots': getattr(handler, 'allow_bots', False),
-            'allow_echo': getattr(handler, 'echo', False),
-            'threaded': getattr(handler, 'thread', True),
-            'output_prefix': getattr(handler, 'output_prefix', ''),
-            'unblockable': getattr(handler, 'unblockable', False),
-            'user_rate_limit': getattr(handler, 'user_rate', 0),
-            'channel_rate_limit': getattr(handler, 'channel_rate', 0),
-            'global_rate_limit': getattr(handler, 'global_rate', 0),
-            'user_rate_message': getattr(
-                handler, 'user_rate_message', None),
-            'channel_rate_message': getattr(
-                handler, 'channel_rate_message', None),
-            'global_rate_message': getattr(
-                handler, 'global_rate_message', None),
-            'default_rate_message': getattr(
-                handler, 'default_rate_message', None),
+            'plugin': handler.plugin_name,
+            'label': handler.label,
+            'priority': handler.priority,
+            'events': handler.events,
+            'ctcp': handler.ctcp,
+            'allow_bots': handler.allow_bots,
+            'allow_echo': handler.allow_echo,
+            'threaded': handler.threaded,
+            'output_prefix': handler.output_prefix or '',
+            'unblockable': handler.unblockable,
+            'user_rate_limit': handler.user_rate or 0,
+            'channel_rate_limit': handler.channel_rate or 0,
+            'global_rate_limit': handler.global_rate or 0,
+            'user_rate_message': handler.user_rate_message,
+            'channel_rate_message': handler.channel_rate_message,
+            'global_rate_message': handler.global_rate_message,
+            'default_rate_message': handler.default_rate_message,
             'usages': usages or tuple(),
             'tests': tests,
             'doc': handler.doc,
         }
 
     @classmethod
-    def regex_from_callable(cls, settings, handler):
+    def regex_from_callable(
+        cls,
+        settings: Config,
+        handler: PluginCallable,
+    ) -> tuple[re.Pattern]:
         regexes = getattr(handler, cls.REGEX_ATTRIBUTE, []) or []
         if not regexes:
             raise RuntimeError(
@@ -956,7 +956,11 @@ class Rule(AbstractRule):
         ))
 
     @classmethod
-    def regex_from_callable_lazy(cls, settings, handler):
+    def regex_from_callable_lazy(
+        cls,
+        settings: Config,
+        handler: PluginCallable,
+    ) -> Rule:
         lazy_loaders = getattr(handler, cls.LAZY_ATTRIBUTE, [])
         if not lazy_loaders:
             raise RuntimeError(
@@ -972,7 +976,11 @@ class Rule(AbstractRule):
         return regexes
 
     @classmethod
-    def from_callable(cls, settings, handler):
+    def from_callable(
+        cls,
+        settings: Config,
+        handler: PluginCallable,
+    ) -> Rule:
         regexes = cls.regex_from_callable(settings, handler)
         kwargs = cls.kwargs_from_callable(handler)
         kwargs['handler'] = handler
@@ -980,7 +988,11 @@ class Rule(AbstractRule):
         return cls(regexes, **kwargs)
 
     @classmethod
-    def from_callable_lazy(cls, settings, handler):
+    def from_callable_lazy(
+        cls,
+        settings: Config,
+        handler: PluginCallable,
+    ) -> Rule:
         """Instantiate a rule object from a handler with lazy-loaded regexes.
 
         :param settings: Sopel's settings
@@ -1486,10 +1498,14 @@ class NickCommand(AbstractNamedRule):
     """
 
     @classmethod
-    def from_callable(cls, settings, handler):
+    def from_callable(
+        cls,
+        settings: Config,
+        handler: PluginCallable,
+    ) -> NickCommand:
         nick = settings.core.nick
         nick_aliases = tuple(settings.core.alias_nicks)
-        commands = getattr(handler, 'nickname_commands', [])
+        commands = handler.nickname_commands
         if not commands:
             raise RuntimeError('Invalid nick command callable: %s' % handler)
 
@@ -1603,8 +1619,12 @@ class ActionCommand(AbstractNamedRule):
     """
 
     @classmethod
-    def from_callable(cls, settings, handler):
-        commands = getattr(handler, 'action_commands', [])
+    def from_callable(
+        cls,
+        settings: Config,
+        handler: PluginCallable,
+    ) -> ActionCommand:
+        commands = handler.action_commands
         if not commands:
             raise RuntimeError('Invalid action command callable: %s' % handler)
 
@@ -1767,7 +1787,11 @@ class URLCallback(Rule):
     LAZY_ATTRIBUTE = 'url_lazy_loaders'
 
     @classmethod
-    def from_callable(cls, settings, handler):
+    def from_callable(
+        cls,
+        settings: Config,
+        handler: PluginCallable,
+    ) -> URLCallback:
         regexes = cls.regex_from_callable(settings, handler)
         kwargs = cls.kwargs_from_callable(handler)
 
@@ -1779,7 +1803,11 @@ class URLCallback(Rule):
         return cls(regexes, **kwargs)
 
     @classmethod
-    def from_callable_lazy(cls, settings, handler):
+    def from_callable_lazy(
+        cls,
+        settings: Config,
+        handler: PluginCallable,
+    ) -> URLCallback:
         """Instantiate a rule object from a handler with lazy-loaded regexes.
 
         :param settings: Sopel's settings

@@ -400,9 +400,14 @@ class PyModulePlugin(AbstractPluginHandler):
         # TODO: replace add_plugin to direct call to register_* methods
         bot.add_plugin(self, *relevant_parts)
 
-    def unregister(self, bot):
-        relevant_parts = loader.clean_module(self.module, bot.config)
-        bot.remove_plugin(self, *relevant_parts)
+    def unregister(self, bot: Sopel) -> None:
+        # hack version waiting on #2636
+        name = self.name
+        bot.rules.unregister_plugin(name)
+        bot.scheduler.unregister_plugin(name)
+        if self.has_shutdown():
+            bot.unregister_shutdowns([self.module.shutdown])
+        del bot._plugins[name]
 
     def shutdown(self, bot):
         if self.has_shutdown():
