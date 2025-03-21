@@ -37,6 +37,8 @@ from typing import (
     TypeVar,
 )
 
+from typing_extensions import override
+
 from sopel.config.core_section import COMMAND_DEFAULT_HELP_PREFIX
 from sopel.lifecycle import deprecated
 
