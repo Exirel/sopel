@@ -26,7 +26,7 @@ def cap_ack_wrapped(configfactory, botfactory, triggerfactory):
 
 def test_capability(cap_ack_wrapped):
     handler = plugin.capability('away-notify')
-    assert isinstance(handler, plugin.capability)
+    assert isinstance(handler, plugin.Capability)
     assert handler.cap_req == ('away-notify',)
 
     result = handler.callback(cap_ack_wrapped, True)
@@ -51,7 +51,7 @@ def test_capability_handler_define_once():
     def handler(name, bot, acknowledged):
         ...
 
-    assert isinstance(handler, plugin.capability)
+    assert isinstance(handler, plugin.Capability)
 
     # cannot redefine a handler
     with pytest.raises(RuntimeError):
@@ -63,7 +63,7 @@ def test_capability_handler_continue(cap_ack_wrapped):
     def handler(name, bot, acknowledged):
         return plugin.CapabilityNegotiation.CONTINUE
 
-    assert isinstance(handler, plugin.capability)
+    assert isinstance(handler, plugin.Capability)
     assert handler.cap_req == ('away-notify',)
     result = handler.callback(cap_ack_wrapped, True)
     assert result == (False, plugin.CapabilityNegotiation.CONTINUE)

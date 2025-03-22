@@ -53,7 +53,7 @@ import os
 import sys
 from typing import Optional, TYPE_CHECKING, TypedDict
 
-from sopel import __version__ as release, plugin as plugin_decorators
+from sopel import __version__ as release
 from . import callables, exceptions
 
 
@@ -181,7 +181,7 @@ class AbstractPluginHandler(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_capability_requests(self) -> list[plugin_decorators.capability]:
+    def get_capability_requests(self) -> list[callables.Capability]:
         """Retrieve the plugin's list of capability requests."""
 
     @abc.abstractmethod
@@ -378,11 +378,11 @@ class PyModulePlugin(AbstractPluginHandler):
         """
         return hasattr(self.module, 'setup')
 
-    def get_capability_requests(self) -> list[plugin_decorators.capability]:
+    def get_capability_requests(self) -> list[callables.Capability]:
         return [
             module_attribute
             for module_attribute in vars(self.module).values()
-            if isinstance(module_attribute, plugin_decorators.capability)
+            if isinstance(module_attribute, callables.Capability)
         ]
 
     def register(self, bot: Sopel) -> None:

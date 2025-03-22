@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import enum
 import functools
 import inspect
 import logging
@@ -20,7 +19,6 @@ from typing import (
     Optional,
     overload,
     Pattern,
-    Protocol,
     TYPE_CHECKING,
     Union,
 )
@@ -28,6 +26,9 @@ from typing import (
 # import and expose privileges as shortcut
 from sopel.plugins.callables import (
     AbstractPluginObject,
+    Capability,
+    CapabilityHandler,
+    CapabilityNegotiation,
     PluginCallable,
     PluginGeneric,
     PluginJob,
@@ -44,7 +45,6 @@ OPER = AccessLevel.OPER
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from sopel.bot import SopelWrapper
 
 
 __all__ = [
@@ -55,6 +55,7 @@ __all__ = [
     'action_commands',
     'allow_bots',
     'capability',
+    'Capability',
     'CapabilityNegotiation',
     'command',
     'commands',
@@ -106,95 +107,10 @@ for example, to allow a user to retry a failed command immediately.
 """
 
 
-class CapabilityNegotiation(enum.Enum):
-    """Capability Negotiation status."""
-
-    DONE = enum.auto()
-    """The capability negotiation can end.
-
-    This must be returned by a capability request handler to signify to the bot
-    that the capability has been properly negotiated and negotiation can end if
-    all other conditions are met.
-    """
-
-    CONTINUE = enum.auto()
-    """The capability negotiation must continue.
-
-    This must be returned by a capability request handler to signify to the bot
-    that the capability requires further processing (e.g. SASL
-    authentication) and negotiation must not end yet.
-
-    The plugin author MUST signal the bot once the negotiation is done.
-    """
-
-    ERROR = enum.auto()
-    """The capability negotiation callback was improperly executed.
-
-    If a capability request's handler returns this status, or if it raises an
-    exception, the bot will mark the request as errored. A handler can use this
-    return value to inform the bot that something wrong happened, without being
-    an error in the code itself.
-    """
-
-
-class CapabilityHandler(Protocol):
-    """:class:`~typing.Protocol` definition for capability handler.
-
-    When a plugin requests a capability, it can define a callback handler for
-    that request using :class:`capability` as a decorator. That handler will be
-    called upon Sopel receiving either an ``ACK`` (capability enabled) or a
-    ``NAK`` (capability denied) CAP message.
-
-    Example::
-
-        from sopel import plugin
-        from sopel.bot import SopelWrapper
-
-        @plugin.capability('example/cap-name')
-        def capability_handler(
-            cap_req: tuple[str, ...],
-            bot: SopelWrapper,
-            acknowledged: bool,
-        ) -> plugin.CapabilityNegotiation:
-            if acknowledged:
-                # do something if acknowledged
-                # i.e.
-                # activate a plugin's feature
-                pass
-            else:
-                # do something else if not
-                # i.e. use a fallback mechanism
-                # or deactivate a plugin's feature if needed
-                pass
-
-            # always return if Sopel can send "CAP END" (DONE)
-            # or if the plugin must notify the bot for that later (CONTINUE)
-            return plugin.CapabilityNegotiation.DONE
-
-    .. note::
-
-        This protocol class should be used for type checking and documentation
-        purposes only.
-
-    """
-    def __call__(
-        self,
-        cap_req: tuple[str, ...],
-        bot: SopelWrapper,
-        acknowledged: bool,
-    ) -> CapabilityNegotiation:
-        """A capability handler must be a callable with this signature.
-
-        :param cap_req: the capability request, as a tuple of string
-        :param bot: the bot instance
-        :param acknowledged: that flag that tells if the capability is enabled
-                             or denied
-        :return: the return value indicates if the capability negotiation is
-                 complete for this request or not
-        """
-
-
-class capability:
+def capability(
+    *name: str,
+    handler: CapabilityHandler | None = None
+) -> Capability:
     """Decorate a function to request a capability and handle the result.
 
     :param name: name of the capability to negotiate with the server; this
@@ -210,7 +126,8 @@ class capability:
     request capabilities if they are available. You can request more than one
     at a time, which will make for one single request.
 
-    The handler must follow the :class:`CapabilityHandler` protocol.
+    The handler must follow the
+    :class:`sopel.plugins.callables.CapabilityHandler` protocol.
 
     .. note::
 
@@ -245,7 +162,8 @@ class capability:
     .. warning::
 
         A function cannot be decorated more than once by this decorator, as
-        the result is an instance of :class:`capability`.
+        the result is an instance of
+        :class:`sopel.plugins.callables.Capability`.
 
         If you want to handle a ``CAP`` message without requesting the
         capability, you should use the :func:`event` decorator instead.
@@ -263,95 +181,7 @@ class capability:
 
     .. __: https://ircv3.net/specs/extensions/capability-negotiation
     """
-    def __init__(
-        self,
-        *cap_req: str,
-        handler: Optional[CapabilityHandler] = None,
-    ) -> None:
-        cap_req_text = ' '.join(cap_req)
-        if len(cap_req_text.encode('utf-8')) > 500:
-            # "CAP * ACK " is 10 bytes, leaving 500 bytes for the capabilities.
-            # Sopel cannot allow multi-line requests, as it won't know how to
-            # deal properly with multi-line ACK.
-            # The spec says a client SHOULD send multiple requests; however
-            # the spec also says that a server will ACK or NAK a whole request
-            # at once. So technically, multiple REQs are not the same as a
-            # single REQ.
-            raise ValueError('Capability request too long: %s' % cap_req_text)
-
-        self._cap_req: tuple[str, ...] = tuple(sorted(cap_req))
-        self._handler: Optional[CapabilityHandler] = handler
-
-    def __str__(self) -> str:
-        caps = ", ".join(repr(cap) for cap in self._cap_req)
-        handler = ""
-        if self._handler and hasattr(self._handler, "__name__"):
-            handler = " ({}())".format(self._handler.__name__)
-        return "<capability {}{}>".format(caps, handler)
-
-    @property
-    def cap_req(self) -> tuple[str, ...]:
-        """Capability request as a sorted tuple.
-
-        This is the capability request that will be sent to the server as is.
-        A request is acknowledged or denied for all the capabilities it
-        contains, so the request ``(example/cap1, example/cap2)`` is not the
-        same as two requests, one for ``example/cap1`` and the other for
-        ``example/cap2``. This makes each request unique.
-        """
-        return self._cap_req
-
-    def callback(
-        self,
-        bot: SopelWrapper,
-        acknowledged: bool,
-    ) -> tuple[bool, Optional[CapabilityNegotiation]]:
-        """Execute the acknowlegement callback of a capability request.
-
-        :param bot: a Sopel instance
-        :param acknowledged: tell if the capability request is acknowledged
-                             (``True``) or deny (``False``)
-        :return: a 2-value tuple that contains if the request is done and the
-                 result of the handler (if any)
-
-        It executes the handler when the capability request receives an
-        acknowledgement (either positive or negative), and returns the result.
-        The handler's return value is used to know if the capability
-        request is done, or if the bot must wait for resolution from the plugin
-        that requested the capability.
-
-        This method returns a 2-value tuple:
-
-        * the first value tells if the negotiation is done for this request
-        * the second is the handler's return value (if any)
-
-        If no handler is registered, this automatically returns
-        ``(True, None)``, as the negotiation is considered done (without any
-        result).
-
-        This doesn't prevent the handler from raising an exception.
-        """
-        result: Optional[CapabilityNegotiation] = None
-        if self._handler is not None:
-            result = self._handler(self.cap_req, bot, acknowledged)
-            LOGGER.debug(
-                'Cap request "%s" got "%s", '
-                'executed successfuly with status: %s',
-                ' '.join(self.cap_req),
-                'ACK' if acknowledged else 'NAK',
-                result.name,
-            )
-        return (result is None or result == CapabilityNegotiation.DONE, result)
-
-    def __call__(
-        self,
-        handler: CapabilityHandler,
-    ) -> capability:
-        """Register a capability negotiation callback."""
-        if self._handler is not None:
-            raise RuntimeError("Cannot re-use capability decorator")
-        self._handler = handler
-        return self
+    return Capability(*name, handler=handler)
 
 
 def unblockable(
