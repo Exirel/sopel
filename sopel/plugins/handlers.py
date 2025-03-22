@@ -53,8 +53,8 @@ import os
 import sys
 from typing import Optional, TYPE_CHECKING, TypedDict
 
-from sopel import __version__ as release, loader, plugin as plugin_decorators
-from . import exceptions
+from sopel import __version__ as release, plugin as plugin_decorators
+from . import callables, exceptions
 
 
 if TYPE_CHECKING:
@@ -391,7 +391,7 @@ class PyModulePlugin(AbstractPluginHandler):
             bot.cap_requests.register(self.name, cap_request)
 
         # plugin callables go through ``bot.add_plugin``
-        relevant_parts = loader.clean_module(self.module, bot.config)
+        relevant_parts = callables.clean_module(self.module, bot.config)
         for part in itertools.chain(*relevant_parts):
             # annotate all callables in relevant_parts with `plugin_name`
             # attribute to make per-channel config work; see #1839
