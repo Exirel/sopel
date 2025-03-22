@@ -13,16 +13,15 @@ from __future__ import annotations
 
 import logging
 
-# Compatibility import
 from sopel.config.core_section import COMMAND_DEFAULT_HELP_PREFIX  # noqa
+from sopel.lifecycle import deprecated
 from sopel.plugins.callables import (  # noqa
     clean_callable,
     clean_module,
     is_limitable,
     is_triggerable,
     is_url_callback,
-)  # noqa
-from sopel.lifecycle import deprecated
+)
 
 
 LOGGER = logging.getLogger(__name__)
