@@ -72,7 +72,7 @@ a different subclass of ``AbstractRule``.
 
 LOGGER = logging.getLogger(__name__)
 
-IGNORE_RATE_LIMIT = 1  # equivalent to sopel.plugin.NOLIMIT
+IGNORE_RATE_LIMIT = 1
 """Return value used to indicate that rate-limiting should be ignored."""
 PRIORITY_HIGH = 'high'
 """Highest rule priority."""

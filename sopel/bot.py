@@ -27,7 +27,7 @@ from typing import (
     Union,
 )
 
-from sopel import db, irc, logger, plugin, plugins, tools
+from sopel import db, irc, logger, plugins, tools
 from sopel.irc import modes
 from sopel.lifecycle import deprecated
 from sopel.plugins import (
@@ -813,7 +813,7 @@ class Sopel(irc.AbstractBot):
             exit_code = None
             self.error(trigger, exception=error)
 
-        if exit_code != plugin.NOLIMIT:
+        if exit_code != plugins.rules.IGNORE_RATE_LIMIT:
             self._times[nick][func] = current_time
             self._times[self.nick][func] = current_time
             if not trigger.is_privmsg:

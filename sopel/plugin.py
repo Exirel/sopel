@@ -23,7 +23,6 @@ from typing import (
     Union,
 )
 
-# import and expose privileges as shortcut
 from sopel.plugins.callables import (
     AbstractPluginObject,
     Capability,
@@ -33,8 +32,11 @@ from sopel.plugins.callables import (
     PluginGeneric,
     PluginJob,
 )
+from sopel.plugins.rules import IGNORE_RATE_LIMIT
 from sopel.privileges import AccessLevel
 
+
+# expose privileges as shortcut
 VOICE = AccessLevel.VOICE
 HALFOP = AccessLevel.HALFOP
 OP = AccessLevel.OP
@@ -56,6 +58,7 @@ __all__ = [
     'allow_bots',
     'capability',
     'Capability',
+    'CapabilityHandler',
     'CapabilityNegotiation',
     'command',
     'commands',
@@ -96,7 +99,7 @@ __all__ = [
 LOGGER = logging.getLogger(__name__)
 
 
-NOLIMIT = 1
+NOLIMIT = IGNORE_RATE_LIMIT
 """Return value for ``callable``\\s, which suppresses rate limiting.
 
 Returning this value means the triggering user will not be prevented from
@@ -170,7 +173,7 @@ def capability(
 
     .. warning::
 
-        The list of ``cap_req`` is limited in size to prevent the bot from
+        The list of ``name``s is limited in size to prevent the bot from
         separating the ``CAP REQ`` in multiple lines as the bot does not know
         how to call back the capability handler upon receiving the multi-line
         ``ACK * REQ``.
