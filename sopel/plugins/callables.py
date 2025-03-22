@@ -31,6 +31,7 @@ from typing import (
     Any,
     Callable,
     Literal,
+    Protocol,
     Type,
     TYPE_CHECKING,
     TypeVar,
@@ -57,6 +58,43 @@ method and not a different subclass of ``AbstractRule``.
 
 .. versionadded:: 8.1
 """
+
+
+class TypedPluginCallableHandler(Protocol):
+    """Protocol definition of a plugin callable handler function.
+
+    A callable handler function must accept two positional arguments:
+
+    * an instance of :class:`~sopel.bot.SopelWrapper`
+    * an instance of :class:`~sopel.trigger.Trigger`
+
+    .. versionadded:: 8.1
+    """
+    __name__: str
+
+    def __call__(
+        self,
+        bot: SopelWrapper,
+        trigger: Trigger,
+        *arg: Any,
+        **kwargs: Any,
+    ) -> Any:
+        ...
+
+
+class TypedPluginJobHandler(Protocol):
+    """Protocol definition of a plugin job handler function.
+
+    A job handler function must accept one positional argument:
+
+    * an instance of :class:`~sopel.bot.Sopel`
+
+    .. versionadded:: 8.1
+    """
+    __name__: str
+
+    def __call__(self, bot: Sopel, *arg: Any, **kwargs: Any) -> Any:
+        ...
 
 
 class AbstractPluginObject(abc.ABC):
@@ -225,7 +263,7 @@ class PluginCallable(AbstractPluginObject):
     @classmethod
     def ensure_callable(
         cls: Type[PluginCallable],
-        obj: Callable | AbstractPluginObject,
+        obj: TypedPluginCallableHandler | AbstractPluginObject,
     ) -> PluginCallable:
         """Ensure that ``obj`` is a plugin callable.
 
@@ -311,7 +349,7 @@ class PluginCallable(AbstractPluginObject):
             self.find_rules_lazy_loaders,
             self.search_rules,
             self.search_rules_lazy_loaders,
-            self.event,
+            self.events,
             self.ctcp,
             self.commands,
             self.nickname_commands,
@@ -351,7 +389,7 @@ class PluginCallable(AbstractPluginObject):
             self.find_rules_lazy_loaders,
             self.search_rules,
             self.search_rules_lazy_loaders,
-            self.event,
+            self.events,
             self.ctcp,
             self.commands,
             self.nickname_commands,
@@ -384,7 +422,7 @@ class PluginCallable(AbstractPluginObject):
 
     def __init__(
         self,
-        handler: Callable[[SopelWrapper, Trigger], Any],
+        handler: TypedPluginCallableHandler,
     ) -> None:
         self._handler = handler
 
@@ -437,8 +475,10 @@ class PluginCallable(AbstractPluginObject):
         self,
         bot: SopelWrapper,
         trigger: Trigger,
+        *args: Any,
+        **kwargs: Any,
     ) -> Any:
-        return self._handler(bot, trigger)
+        return self._handler(bot, trigger, *args, **kwargs)
 
     @override
     def get_handler(self) -> Callable:
@@ -526,7 +566,7 @@ class PluginJob(AbstractPluginObject):
     @classmethod
     def ensure_callable(
         cls: Type[PluginJob],
-        obj: Callable | AbstractPluginObject,
+        obj: TypedPluginJobHandler | AbstractPluginObject,
     ) -> PluginJob:
         """Ensure that ``obj`` is a plugin job.
 
@@ -552,7 +592,7 @@ class PluginJob(AbstractPluginObject):
 
         return handler
 
-    def __init__(self, handler: Callable[[Sopel], Any]):
+    def __init__(self, handler: TypedPluginJobHandler):
         self._handler = handler
 
         # shared meta data
@@ -564,11 +604,11 @@ class PluginJob(AbstractPluginObject):
         # job
         self.intervals: list = []
 
-    def __call__(self, bot: Sopel) -> Any:
-        return self._handler(bot)
+    def __call__(self, bot: Sopel, *args: Any, **kwargs: Any) -> Any:
+        return self._handler(bot, *args, **kwargs)
 
     @override
-    def get_handler(self) -> Callable:
+    def get_handler(self) -> TypedPluginJobHandler:
         return self._handler
 
     def setup(self, settings: Config) -> None:

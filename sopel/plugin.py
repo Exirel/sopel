@@ -591,7 +591,7 @@ def find(
 
 
 def find_lazy(
-    *loaders: Callable
+    *loaders: Callable,
 ) -> Callable[[Callable], PluginCallable]:
     """Decorate a callable as a find rule with lazy loading.
 
