@@ -67,7 +67,7 @@ plugin instead.
    Just like single file plugins, you *can* use extra dependencies with folder
    plugins; the same advice about ``requirements.txt`` and ``pip`` applies.
 
-.. _namespace-package
+.. _namespace-package:
 
 Namespace package (deprecated)
 ------------------------------
