@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import functools
 import inspect
-import logging
 import re
 from typing import (
     Callable,
@@ -110,9 +109,6 @@ __all__ = [
     'url',
     'url_lazy',
 ]
-
-
-LOGGER = logging.getLogger(__name__)
 
 
 NOLIMIT = IGNORE_RATE_LIMIT
