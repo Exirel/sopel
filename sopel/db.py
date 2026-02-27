@@ -526,8 +526,8 @@ class SopelDB:
         self,
         nick: str,
         key: str,
-        default: typing.Any | None = None
-    ) -> typing.Any | None:
+        default: typing.Any = None
+    ) -> typing.Any:
         """Get a value from the key-value store for ``nick``.
 
         :param nick: the nickname whose values to access
